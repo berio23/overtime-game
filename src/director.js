@@ -521,7 +521,7 @@ export class Director {
     dz.print('user: a.deniz', 'fg');
     await this.wait(1.5);
     hud.hint('you remember his password. you picked it. type.');
-    await this.typeIn('fenerbahce1907');
+    await this.typeIn('galatasaray1905');
     hud.hint(null);
     await this.wait(1.2);
     dz.print('welcome back, deniz. last login 18:02.', 'green');
