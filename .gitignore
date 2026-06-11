@@ -1,0 +1,4 @@
+# local deployment helpers — never commit (token inside)
+duckdns-update.ps1
+start-public.bat
+node_modules/

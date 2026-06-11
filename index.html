@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<link rel="icon" href="data:,">
+<title>OVERTIME — incident 4471</title>
+<style>
+  :root{ --hud:#d8e2dc; --warn:#ff4d4d; --amber:#ffb454; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{ width:100%; height:100%; background:#000; overflow:hidden; font-family:"Consolas","Lucida Console",monospace; }
+  canvas{ display:block; }
+  .layer{ position:fixed; inset:0; pointer-events:none; z-index:10; }
+
+  /* ---------- bodycam HUD ---------- */
+  #hud{ opacity:0; transition:opacity 1.2s; text-shadow:0 0 4px rgba(0,0,0,.9); }
+  #hud.on{ opacity:1; }
+  .hudtxt{ position:absolute; color:var(--hud); font-size:14px; letter-spacing:1px; opacity:.85; }
+  #rec{ top:22px; left:26px; display:flex; align-items:center; gap:8px; }
+  #zoomind{ top:48px; left:26px; color:var(--amber); opacity:0; transition:opacity .2s; }
+  #recdot{ width:11px; height:11px; border-radius:50%; background:var(--warn); animation:blink 1.6s steps(1) infinite; }
+  @keyframes blink{ 50%{ opacity:.1; } }
+  #ts{ top:22px; right:26px; text-align:right; }
+  #camid{ bottom:22px; left:26px; }
+  #bat{ bottom:22px; right:26px; text-align:right; }
+  #hud.glitch .hudtxt{ color:#9ef; animation:jit .12s steps(2) infinite; }
+  @keyframes jit{ 50%{ transform:translate(1px,-1px) skewX(2deg); opacity:.5; } }
+
+  /* ---------- subtitles / objective / prompts ---------- */
+  #subtitle{ position:absolute; left:50%; bottom:11%; transform:translateX(-50%); max-width:72%;
+    color:#fff; font-size:19px; line-height:1.45; text-align:center; text-shadow:0 1px 3px #000,0 0 12px rgba(0,0,0,.8);
+    opacity:0; transition:opacity .25s; }
+  #subtitle .spk{ display:block; font-size:12px; letter-spacing:3px; opacity:.7; margin-bottom:4px; }
+  #subtitle.boss .spk{ color:var(--amber); } #subtitle.ai .spk{ color:#9be8ff; } #subtitle.you{ font-style:italic; color:#c9c9c9; }
+  #objective{ position:absolute; top:7%; left:50%; transform:translateX(-50%); color:#e8e8e8; font-size:14px;
+    letter-spacing:2px; opacity:0; transition:opacity .8s; text-shadow:0 0 6px #000; text-transform:uppercase; }
+  #prompt{ position:absolute; left:50%; top:58%; transform:translateX(-50%); color:#fff; font-size:15px;
+    background:rgba(0,0,0,.45); padding:5px 14px; border:1px solid rgba(255,255,255,.25); border-radius:3px;
+    opacity:0; transition:opacity .15s; }
+  #hint{ position:absolute; left:50%; bottom:5%; transform:translateX(-50%); color:#dedede; font-size:19px;
+    letter-spacing:1px; opacity:0; transition:opacity .6s; text-shadow:0 1px 3px #000,0 0 14px rgba(0,0,0,.9);
+    background:rgba(0,0,0,.35); padding:4px 16px; border-radius:3px; white-space:nowrap; }
+  #dot{ position:absolute; left:50%; top:50%; width:3px; height:3px; margin:-1px 0 0 -1px; border-radius:50%;
+    background:rgba(255,255,255,.5); opacity:0; transition:opacity .5s; }
+
+  /* ---------- paper close-up ---------- */
+  #paperview{ position:fixed; inset:0; z-index:30; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.78); pointer-events:none; }
+  #paperview.on{ display:flex; }
+  #paper{ width:min(46vh,420px); aspect-ratio:.707; background:#e9e6df; color:#222; padding:34px 30px;
+    font-size:11px; line-height:1.7; overflow:hidden; box-shadow:0 12px 60px #000;
+    transform:rotate(-1.5deg); filter:contrast(1.05) sepia(.08); white-space:pre-wrap; word-break:break-all; }
+  #paper .mid{ display:block; margin:14px 0; font-size:14px; font-weight:bold; letter-spacing:1px; }
+  #paperclose{ position:absolute; bottom:8%; left:50%; transform:translateX(-50%); color:#bbb; font-size:13px; }
+
+  /* ---------- fades / boot / end ---------- */
+  #fade{ position:fixed; inset:0; background:#000; z-index:40; pointer-events:none; opacity:1; transition:opacity 2s; }
+  #boot{ position:fixed; inset:0; z-index:50; background:#000; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:14px; color:#cfd8d3; cursor:pointer; }
+  #boot h1{ font-size:15px; font-weight:normal; letter-spacing:4px; }
+  #boot .meta{ font-size:12px; color:#5b6660; letter-spacing:2px; line-height:2; text-align:center; }
+  #boot .go{ margin-top:30px; font-size:13px; color:#fff; border:1px solid #444; padding:8px 22px; letter-spacing:3px; }
+  #boot .go:hover{ background:#161616; }
+  #boot.loading .go{ opacity:.3; pointer-events:none; }
+  #pause{ position:fixed; inset:0; z-index:45; background:rgba(0,0,0,.82); display:none; align-items:center;
+    justify-content:center; color:#ccc; letter-spacing:3px; font-size:14px; cursor:pointer; }
+  #pause.on{ display:flex; }
+  #endcard{ position:fixed; inset:0; z-index:48; background:#000; display:none; align-items:center; justify-content:center; }
+  #endcard.on{ display:flex; }
+  #endcard pre{ color:#cfd8d3; font-size:14px; line-height:2; letter-spacing:1px; }
+  #endcard .cursor{ animation:blink 1s steps(1) infinite; }
+
+  /* ---------- touch controls ---------- */
+  html, body{ touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none; }
+  #touch{ position:fixed; inset:0; z-index:20; pointer-events:none; display:none; }
+  body.mobile #touch{ display:block; }
+  #stick{ position:fixed; width:120px; height:120px; border-radius:50%; display:none;
+    border:2px solid rgba(255,255,255,.25); background:rgba(255,255,255,.06); }
+  #nub{ position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%;
+    background:rgba(255,255,255,.3); }
+  #tbtns{ position:fixed; right:14px; bottom:16px; display:flex; flex-direction:column; gap:12px;
+    pointer-events:none; }
+  .tbtn{ pointer-events:auto; width:74px; height:48px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center; font-size:13px; letter-spacing:2px; color:#e8e8e8;
+    background:rgba(20,20,24,.55); border:1px solid rgba(255,255,255,.3);
+    text-shadow:0 1px 2px #000; }
+  .tbtn:active{ background:rgba(120,140,160,.5); }
+  .tbtn.big{ position:fixed; right:110px; bottom:30%; width:120px; height:74px; font-size:18px;
+    border-color:rgba(255,200,120,.6); color:#ffd9a0; display:none; }
+  .tbtn.big.send{ border-color:#3fcf6e; color:#9af0b6; }
+  body.mobile #subtitle{ bottom:20%; font-size:16px; max-width:84%; }
+  body.mobile #hint{ bottom:2.5%; font-size:15px; max-width:92%; white-space:normal; text-align:center; }
+  body.mobile #prompt{ top:50%; }
+  body.mobile .hudtxt{ font-size:11px; }
+  #rotate{ position:fixed; inset:0; z-index:60; background:#000; color:#cfd8d3; display:none;
+    align-items:center; justify-content:center; letter-spacing:3px; font-size:14px; text-align:center; }
+  @media (orientation: portrait){ body.mobile #rotate{ display:flex; } }
+</style>
+</head>
+<body>
+  <div class="layer" id="hud">
+    <div class="hudtxt" id="rec"><span id="recdot"></span>REC</div>
+    <div class="hudtxt" id="zoomind">ZOOM 1.0×</div>
+    <div class="hudtxt" id="ts">2026-06-11 23:47:02<br><span style="font-size:11px;opacity:.6">FPS 30 · 1080P</span></div>
+    <div class="hudtxt" id="camid">AXIS BWC-7 · CH 04 · V. MARCUS</div>
+    <div class="hudtxt" id="bat">BAT 84%<br><span id="gpsline" style="font-size:11px;opacity:.6">GPS LOCKED · FL 11</span></div>
+    <div id="dot"></div>
+    <div id="objective"></div>
+    <div id="prompt"></div>
+    <div id="subtitle"><span class="spk"></span><span class="txt"></span></div>
+    <div id="hint"></div>
+  </div>
+
+  <div id="paperview"><div id="paper"></div><div id="paperclose">[E] put it down</div></div>
+  <div id="fade"></div>
+
+  <div id="pause">PAUSED — CLICK TO RESUME</div>
+
+  <div id="endcard"><pre id="endtext"></pre></div>
+  <div id="rotate">ROTATE YOUR PHONE<br><br>this footage is landscape</div>
+
+  <div id="boot" class="loading">
+    <h1>BODY-WORN CAMERA — EVIDENCE COPY</h1>
+    <div class="meta">INCIDENT 4471 · "OVERTIME"<br>HALVORSEN LOGISTICS HQ · FLOOR 11<br>RECORDED 2026-06-11 · 23:47 — 04:12</div>
+    <div class="meta" style="margin-top:18px" id="bootcontrols">headphones strongly recommended<br>WASD move · mouse look · hold RIGHT MOUSE zoom · E interact · F flashlight · keyboard types</div>
+    <script>
+      if (matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0)) {
+        document.getElementById('bootcontrols').innerHTML =
+          'headphones strongly recommended<br>left thumb move · right thumb look · ACT interact · LIGHT flashlight · TYPE when it asks';
+      }
+    </script>
+    <div class="go" id="gobtn">LOADING…</div>
+  </div>
+
+  <script type="importmap">
+  { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  } }
+  </script>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
