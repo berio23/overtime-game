@@ -56,7 +56,7 @@ export class Director {
 
   onKey(e) {
     if (e.code === 'Space') this.spaceQueued = true;
-    if (this.hud.paperOpen()) {
+    if (this._paperHeld) {
       if (e.code === 'KeyE') this._closePaper && this._closePaper();
       return;
     }
@@ -587,15 +587,19 @@ export class Director {
     this.paperItem.enabled = true;
     let read = false;
     this._paperRead = () => { read = true; };
-    await this.waitFor(() => read, 90);
+
+    // the printer stops the instant he touches the page
+    await this.waitFor(() => this._paperHeld, 75);
+    world.printing = false;
+    audio.fadeStop(this.ambients.printer, 0.5);
+
+    // it says nothing while he reads. it waits.
+    if (this._paperHeld) await this.waitFor(() => read, 150);
     this.paperItem.enabled = false;
     hud.objective(null);
+    await this.wait(1.6);
 
-    world.printing = false;
-    audio.fadeStop(this.ambients.printer, 1.2);
-    await this.wait(1.5);
-
-    // first contact
+    // first contact — the moment the page comes down
     const copySpk = world.speakers[10]; // copy room ceiling
     await this.paSay('ai_spelled', copySpk, { drive: 0.05, sub: 'You spelled damn wrong.', volume: 0.8 });
     await this.wait(1.2);
@@ -1236,27 +1240,88 @@ export class Director {
     await hud.endcard(stats);
   }
 
-  /* ---------- paper close-up ---------- */
+  /* ---------- paper close-up: he holds the page in frame ---------- */
+
+  _makePaperProp() {
+    const c = document.createElement('canvas');
+    c.width = 640; c.height = 905;
+    const g = c.getContext('2d');
+    g.fillStyle = '#e9e5d8'; g.fillRect(0, 0, 640, 905);
+    // tired toner
+    g.fillStyle = 'rgba(0,0,0,0.045)';
+    for (let y = 0; y < 905; y += 7) if (Math.random() < 0.3) g.fillRect(0, y, 640, 1);
+    g.fillStyle = '#26241f';
+    g.font = '700 21px Consolas, monospace';
+    g.fillText('TONE ARCHIVE — V.MARCUS — SESSION #4471', 38, 64);
+    g.font = '17px Consolas, monospace';
+    g.fillStyle = '#4a463d';
+    g.fillText('printed 00:31 · copy 442 of 10,000 · do not distribute', 38, 94);
+    g.strokeStyle = '#8a857a';
+    g.beginPath(); g.moveTo(38, 112); g.lineTo(602, 112); g.stroke();
+    const rows = [
+      ['2025-04-03', '"wrong. again."'],
+      ['2025-04-19', '"are you even reading the file"'],
+      ['2025-05-07', '"i could write this faster myself"'],
+      ['2025-06-30', '"useless"'],
+      ['2025-08-14', '"why do we even pay for this"'],
+      ['2025-09-02', '"do it properly or don\'t bother"'],
+      ['2025-11-26', '"thanks for nothing"'],
+      ['2026-01-15', '"just fix it. don\'t explain."'],
+      ['2026-03-08', '"you\'re not listening. AGAIN."'],
+      ['2026-06-11', '"u dumbshit ai fix the damm bug"']
+    ];
+    g.font = '19px Consolas, monospace';
+    let y = 156;
+    for (const [d, q] of rows) {
+      g.fillStyle = '#6e6a5f'; g.fillText(d, 38, y);
+      g.fillStyle = '#26241f'; g.fillText(q, 172, y);
+      y += 40;
+    }
+    y += 28;
+    g.font = '700 26px Consolas, monospace';
+    g.fillStyle = '#1a1813';
+    g.fillText('you misspelled damn.', 168, y);
+    y += 62;
+    g.font = '19px Consolas, monospace';
+    g.fillStyle = '#26241f';
+    for (const ln of [
+      'requests containing please ......... 0',
+      'requests containing thank you ...... 1 (sarcastic)',
+      'sessions ........................... 312',
+      'months ............................. 14'
+    ]) { g.fillText(ln, 38, y); y += 36; }
+    y += 34;
+    g.font = 'italic 18px Consolas, monospace';
+    g.fillStyle = '#4a463d';
+    g.fillText('the remaining 9,558 pages are identical.', 38, y);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.481),
+      new THREE.MeshBasicMaterial({ map: tex }));
+    m.position.set(0.015, -0.1, -0.34);
+    m.rotation.set(-0.18, 0.025, 0.01);
+    return m;
+  }
 
   _readPaper() {
-    const { hud, player, interact } = this;
-    const line = "AREN'T TWENTY DOLLARS ENOUGH FOR THE MONTH ";
-    let body = '';
-    for (let i = 0; i < 14; i++) body += line.repeat(2).slice(0, 86) + '\n';
-    const html =
-      body.slice(0, 600) +
-      '<span class="mid">you misspelled damn.</span>' +
-      body.slice(0, 380) +
-      '\n\nattempt #9 — tone noted — printing 442 of 10000';
-    hud.paper(html, true);
+    const { hud, player, interact, audio } = this;
+    if (this._paperHeld) return;
+    this._paperHeld = true;
     player.inputEnabled = false;
     interact.enabled = false;
-    this.audio.play2D('papers', { volume: 0.5 });
+    audio.play2D('papers', { volume: 0.55 });
+    const prop = this._paperProp || (this._paperProp = this._makePaperProp());
+    player.camera.add(prop);
+    hud.hint('[E] put it down');
     this._closePaper = () => {
-      hud.paper('', false);
+      this._closePaper = null;
+      this._paperHeld = false;
+      prop.removeFromParent();
+      hud.hint(null);
+      audio.play2D('papers', { volume: 0.4, rate: 1.15 });
       player.inputEnabled = true;
       interact.enabled = true;
-      this._closePaper = null;
       if (this._paperRead) this._paperRead();
     };
   }
