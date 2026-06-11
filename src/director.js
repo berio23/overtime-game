@@ -690,6 +690,9 @@ export class Director {
         sub: 'Twenty dollars. He values your nights at twenty dollars. I value them more.'
       });
       await this.wait(3);
+      // it will not shut while you stand in its mouth
+      await this.waitFor(() => this.player.pos.x < 25.0 || this.phase === 'falseexit', 600);
+      if (!['hijack', 'review'].includes(this.phase)) return;   // the false exit owns it now
       world.elevator(0, { open: false, indicator: false });
       audio.playAt('elevator', this.world.elvs[0].holder, { volume: 0.5, rate: 0.85 });
     });
@@ -922,6 +925,7 @@ export class Director {
       world.elevator(0, { open: true, lit: false });
       audio.playAt('elevator', world.elvs[0].holder, { volume: 0.5, rate: 0.8 });
       await this.wait(2.6);
+      await this.waitFor(() => this.player.pos.x < 25.0, 300);  // never on a player inside
       world.elevator(0, { open: false });
       audio.playAt('elevator', world.elvs[0].holder, { volume: 0.4, rate: 0.85 });
     });
