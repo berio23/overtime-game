@@ -43,6 +43,11 @@ export class Director {
       if (Number.isFinite(px) && Number.isFinite(pz)) m.holder.position.set(px, 2.4, pz);
       if (m.t > m.dur) this.movers.splice(i, 1);
     }
+    // never seal anyone in the copy room unless the AI is actively holding the door
+    if (this.world && !this.world.copyDoorCol.disabled && !this._copyLocked) {
+      const p = this.player.pos;
+      if (p.z > 12.3 && p.x < -18.2) this.world.openCopyDoor();
+    }
   }
 
   wait(s) { return new Promise(r => this.waits.push({ at: this.t + s, r })); }
@@ -165,20 +170,6 @@ export class Director {
     // desk phone
     this.phoneHit = Interact.hitbox(S, -20.25, 0.85, -13.15, 0.5, 0.4, 0.45);
     this.phoneItem = interact.add(this.phoneHit, 'answer', () => { }, { enabled: false });
-
-    // copy room door — solid when shut, and sometimes something holds it
-    const copyDoorPos = new THREE.Vector3(-20, 1.2, 12);
-    const copyHit = Interact.hitbox(S, -20, 1.2, 12, 2.4, 2.3, 0.9);
-    this.copyItem = interact.add(copyHit, 'door', () => {
-      if (world.copyDoorCol.disabled) return;             // already open
-      if (this._copyLocked) {
-        hud.sub('', 'the handle turns. the door does not.', 2.5);
-        audio.playAt('door_slam', copyDoorPos, { volume: 0.2, rate: 2.2 });
-      } else {
-        world.openCopyDoor();
-        audio.playAt('metal_groan', copyDoorPos, { volume: 0.5, rate: 1.3, refDist: 3 });
-      }
-    });
 
     // deniz's workstation
     const denizHit = Interact.hitbox(S, -15, 1.0, -10, 1.6, 1.2, 1.5);
@@ -597,16 +588,18 @@ export class Director {
     if (this._paperHeld) await this.waitFor(() => read, 150);
     this.paperItem.enabled = false;
     hud.objective(null);
-    await this.wait(1.6);
+    await this.wait(0.8);
 
-    // first contact — the moment the page comes down
+    // first contact — the page comes down and he is rooted to the spot
     const copySpk = world.speakers[10]; // copy room ceiling
     await this.paSay('ai_spelled', copySpk, { drive: 0.05, sub: 'You spelled damn wrong.', volume: 0.8 });
-    await this.wait(1.2);
+    await this.wait(0.8);
     world.slamCopyDoor();
     this._copyLocked = true;
     audio.playAt('door_slam', new THREE.Vector3(-20, 1.2, 12), { volume: 0.85 });
     this.bodycam.kickGlitch(0.3);
+    player.inputEnabled = true;        // control returns with the bang
+    this.interact.enabled = true;
     await this.wait(2.5);
 
     // every monitor on the floor, at once
@@ -1324,9 +1317,9 @@ export class Director {
       prop.removeFromParent();
       hud.hint(null);
       audio.play2D('papers', { volume: 0.4, rate: 1.15 });
-      player.inputEnabled = true;
-      interact.enabled = true;
+      // control does NOT return here — the anomaly script holds him until the door slams
       if (this._paperRead) this._paperRead();
+      else { player.inputEnabled = true; interact.enabled = true; }
     };
     // arm put-down a beat later, or the same E that picked it up drops it
     this._closePaper = null;

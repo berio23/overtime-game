@@ -37,6 +37,8 @@ export class TouchControls {
 
   _press(code, key) {
     document.dispatchEvent(new KeyboardEvent('keydown', { code, key, bubbles: true }));
+    // matching keyup, or the key latches in player.keys and the character walks itself
+    document.dispatchEvent(new KeyboardEvent('keyup', { code, key, bubbles: true }));
   }
 
   _bind() {
