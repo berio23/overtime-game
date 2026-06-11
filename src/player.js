@@ -129,14 +129,15 @@ export class Player {
     if (this.mode === 'free' && this.inputEnabled) {
       let f = (this.keys['KeyW'] ? 1 : 0) - (this.keys['KeyS'] ? 1 : 0);
       let s = (this.keys['KeyD'] ? 1 : 0) - (this.keys['KeyA'] ? 1 : 0);
-      let mag = 1;
+      let mag = 1, touchRun = false;
       const run = this.keys['ShiftLeft'] || this.keys['ShiftRight'];
       const tm = this.touchMove;
       if (f === 0 && s === 0 && Math.hypot(tm.x, tm.y) > 0.12) {
         f = -tm.y; s = tm.x;
         mag = Math.min(1, Math.hypot(tm.x, tm.y));
+        touchRun = mag > 0.92;   // pushing the stick to its edge = run
       }
-      const v = (run || mag > 0.92 ? 3.6 : 2.3) * this.speedMul * (mag < 1 ? Math.max(0.35, mag) : 1);
+      const v = (run || touchRun ? 3.6 : 2.3) * this.speedMul * (mag < 1 ? Math.max(0.35, mag) : 1);
       if (f !== 0 || s !== 0) {
         const len = Math.hypot(f, s);
         const sin = Math.sin(this.yaw), cos = Math.cos(this.yaw);

@@ -176,7 +176,7 @@ export class World {
     /* ---- elevators ---- */
     const matElvDoor = new THREE.MeshStandardMaterial({ color: 0x6b6f76, roughness: 0.25, metalness: 0.85 });
     const matCab = new THREE.MeshStandardMaterial({ color: 0x2c2e33, roughness: 0.7 });
-    for (const [i, cz] of [[0, -2], [1, 2]].entries()) {
+    for (const [i, cz] of [[0, -2], [1, 2]]) {
       // cab shell
       this._box(2.2, 0.1, 2.0, 26.1, 0.05, cz, matCab, false);            // cab floor
       this._box(2.2, 0.1, 2.0, 26.1, 2.45, cz, matCab, false);            // cab ceiling
