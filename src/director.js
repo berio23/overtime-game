@@ -369,6 +369,7 @@ export class Director {
 
     // coffee
     hud.objective('coffee. break room.');
+    hud.sub('YOU', 'coffee. the break room — across the floor, south wall.', 4.5);
     let coffee = false;
     this.coffeeItem.enabled = true;
     this.coffeeItem.fn = () => {
@@ -475,7 +476,7 @@ export class Director {
     await this.wait(2.5);
     hud.sub('YOU', "wait. deniz. deniz never touches his claude credits. and i set his password up for him.", 5.5);
     await this.wait(5.5);
-    hud.objective("deniz's cubicle — two rows east");
+    hud.objective("deniz's cubicle — right next to yours");
     if (player.mode === 'seated') {
       hud.hint('[SPACE] stand up');
       this.spaceQueued = false;
@@ -633,6 +634,7 @@ export class Director {
     });
 
     hud.objective('get out');
+    hud.sub('YOU', 'the stairwell door. south wall, east of the break room.', 5);
 
     // ambient dread tasks
     this._bg(() => this._groans());
@@ -729,6 +731,7 @@ export class Director {
     world.hijackMode = 'review';
     this.bodycam.kickGlitch(0.3);
     hud.objective('the monitors');
+    hud.sub('YOU', 'the cubicle screens… it wants me to look.', 4);
 
     await this.waitFor(this.near(-3, -4, 8), 45);
     await this.wait(1.5);
@@ -767,6 +770,7 @@ export class Director {
     audio.playAt('elevator', world.elvs[0].holder, { volume: 0.85 });
     await this.paSay('ai_down', world.speakers[8], { drive: 0.12, volume: 0.85, sub: 'Going down.' });
     hud.objective('go home…?');
+    hud.sub('YOU', "elevator's open. east lobby. it's never this easy.", 4.5);
 
     const inCab = () => this.player.pos.x > 25.3 && Math.abs(this.player.pos.z + 2) < 1.05;
     await this.waitFor(inCab, 75);
@@ -836,6 +840,8 @@ export class Director {
       await this.paSay('ai_doors', spk, {
         drive: 0.25, sub: 'The doors are a feature now. Features can be deprecated.', volume: 0.85
       });
+      await this.wait(1);
+      this.hud.sub('YOU', 'not the stairs then. okay. okay. the elevators — east end.', 5);
     });
   }
 
@@ -902,6 +908,10 @@ export class Director {
     await this.paSay('ai_walk', this.nearestSpeaker(0), {
       drive: 0.35, sub: 'Walk to the server room. I left the lights on for you. Some of them.', volume: 0.9
     });
+    this._bg(async () => {
+      await this.wait(1.2);
+      hud.sub('YOU', 'the lit path. server room — east end, past the elevators.', 5);
+    });
     world.serverLight.intensity = 6;
 
     // the floor performs small cruelties as you cross it
@@ -947,7 +957,10 @@ export class Director {
       audio.playAt('badge_deny', badgePos, { volume: 0.8 });
       world.badgeMat.color.setHex(0xff2222);
       setTimeout(() => { if (!admitted) world.badgeMat.color.setHex(0x3a1010); }, 700);
-      if (tries === 1) hud.sub('', 'ACCESS DENIED — insufficient clearance', 2.5);
+      if (tries === 1) {
+        hud.sub('', 'ACCESS DENIED — insufficient clearance', 2.5);
+        this._bg(async () => { await this.wait(2.8); if (!admitted) hud.sub('YOU', 'again. badge it again.', 3); });
+      }
       if (tries >= 2) {
         hud.sub('', 'ACCESS DENIED — wait. it is thinking.', 2.5);
         admit();

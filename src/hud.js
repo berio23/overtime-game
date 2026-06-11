@@ -2,7 +2,7 @@ const $ = id => document.getElementById(id);
 
 const MOBILE_MAP = [
   ['[SPACE]', '[STAND]'], ['[F]', '[LIGHT]'], ['[E]', '[ACT]'],
-  ['press any keys', 'tap TYPE'], ['hold RIGHT MOUSE to lean in', 'hold ZOOM to lean in'],
+  ['press any keys', 'tap TYPE'], ['hold RIGHT MOUSE to lean in', 'tap ZOOM to lean in'],
   ['type.', 'tap TYPE.']
 ];
 

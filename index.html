@@ -85,6 +85,7 @@
     background:rgba(20,20,24,.55); border:1px solid rgba(255,255,255,.3);
     text-shadow:0 1px 2px #000; }
   .tbtn:active{ background:rgba(120,140,160,.5); }
+  .tbtn.on{ background:rgba(120,200,255,.28); border-color:#9fd8ff; color:#dff2ff; }
   .tbtn.big{ position:fixed; right:110px; bottom:30%; width:120px; height:74px; font-size:18px;
     border-color:rgba(255,200,120,.6); color:#ffd9a0; display:none; }
   .tbtn.big.send{ border-color:#3fcf6e; color:#9af0b6; }
@@ -126,7 +127,7 @@
     <script>
       if (matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0)) {
         document.getElementById('bootcontrols').innerHTML =
-          'headphones strongly recommended<br>left thumb move · right thumb look · ACT interact · LIGHT flashlight · TYPE when it asks';
+          'headphones strongly recommended<br>left thumb move · right thumb look · ACT interact · LIGHT flashlight<br>ZOOM toggles the lens (read screens while you TYPE)';
       }
     </script>
     <div class="go" id="gobtn">LOADING…</div>

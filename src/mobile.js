@@ -96,7 +96,14 @@ export class TouchControls {
     tap('t-act', down => { if (down) this._press('KeyE', 'e'); });
     tap('t-light', down => { if (down) this._press('KeyF', 'f'); });
     tap('t-stand', down => { if (down) this._press('Space', ' '); });
-    tap('t-zoom', down => { this.player.zoomTarget = down ? 1 : 0; });
+    // zoom is a toggle on touch — you cannot hold a button and tap TYPE at once
+    const zoomBtn = document.getElementById('t-zoom');
+    tap('t-zoom', down => {
+      if (!down) return;
+      const on = this.player.zoomTarget < 0.5;
+      this.player.zoomTarget = on ? 1 : 0;
+      zoomBtn.classList.toggle('on', on);
+    });
     tap('t-type', down => {
       if (!down || !this.director.typing) return;
       const inp = this.director.terminal.input;
