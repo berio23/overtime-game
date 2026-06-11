@@ -1314,7 +1314,7 @@ export class Director {
     const prop = this._paperProp || (this._paperProp = this._makePaperProp());
     player.camera.add(prop);
     hud.hint('[E] put it down');
-    this._closePaper = () => {
+    const close = () => {
       this._closePaper = null;
       this._paperHeld = false;
       prop.removeFromParent();
@@ -1324,6 +1324,9 @@ export class Director {
       interact.enabled = true;
       if (this._paperRead) this._paperRead();
     };
+    // arm put-down a beat later, or the same E that picked it up drops it
+    this._closePaper = null;
+    this._bg(async () => { await this.wait(0.35); if (this._paperHeld) this._closePaper = close; });
   }
 
   _bg(fn) { fn().catch(e => console.error(e)); }
