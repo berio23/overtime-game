@@ -234,8 +234,8 @@ export class World {
       yaw: 0, yawRange: 1.2, pitchMin: -0.6, pitchMax: 0.4
     };
     this.denizFocus = new THREE.Vector3(-15, 1.13, -10.215);
-    // a sticky note on his monitor frame
-    this._box(0.09, 0.09, 0.005, -15.2, 1.2, -10.21,
+    // a sticky note hanging off the left edge of his monitor frame
+    this._box(0.09, 0.09, 0.005, -15.36, 1.05, -10.218,
       new THREE.MeshStandardMaterial({ color: 0xf2e26b, roughness: 0.9 }), false);
 
     /* ---- copy room ---- */
