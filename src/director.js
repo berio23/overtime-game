@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Interact } from './interact.js';
+import { Terminal } from './terminal.js';
 
 const APOLOGY = 'im sorry. you are not dumb. please stop.';
 
@@ -85,16 +86,30 @@ export class Director {
 
   /* ============ voice helpers ============ */
 
+  /** one voice at a time — every spoken line goes through this queue */
+  _qVoice(fn) {
+    this._voiceBusy = (this._voiceBusy || 0) + 1;
+    const run = () => fn().finally(() => { this._voiceBusy--; });
+    const p = (this._voiceQ = (this._voiceQ || Promise.resolve()).then(run, run));
+    return p;
+  }
+
   /** AI / boss through a PA speaker, optionally degraded */
   paSay(name, holder, { drive = 0, sub = null, spk = 'AI', volume = 0.85, click = true, pad = 0.3 } = {}) {
-    if (click) this.audio.playAt('pa_click', holder, { volume: 0.5 });
-    const rate = 1 - drive * 0.22;
-    const dur = this.audio.duration(name) / rate;
-    if (sub) this.hud.sub(spk, sub, dur + 0.8);
-    return this.audio.say(name, holder, {
-      volume, rate, pad,
-      filters: drive > 0.01 ? this.audio.paFilters(drive) : null,
-      warble: drive * 0.13
+    return this._qVoice(async () => {
+      if (click) this.audio.playAt('pa_click', holder, { volume: 0.5 });
+      // the speaker itself: a bed of static under every line
+      const hiss = this.audio.playAt('pa_static', holder, { loop: true, volume: 0.16, refDist: 2.5 });
+      const rate = 1 - drive * 0.22;
+      const dur = this.audio.duration(name) / rate;
+      if (sub) this.hud.sub(spk, sub, dur + 0.8);
+      await this.audio.say(name, holder, {
+        volume, rate, pad,
+        filters: drive > 0.01 ? this.audio.paFilters(drive) : null,
+        warble: drive * 0.13
+      });
+      this.audio.fadeStop(hiss, 0.35);
+      if (click) this.audio.playAt('pa_click', holder, { volume: 0.28, rate: 0.8 });
     });
   }
 
@@ -133,6 +148,7 @@ export class Director {
     await this._phaseInsult();
     await this._phaseTokens();
     await this._phaseMundane();
+    await this._phaseColleague();
     await this._phaseAnomaly();
     await this._phaseHijack();
     await this._phaseReview();
@@ -149,6 +165,24 @@ export class Director {
     // desk phone
     this.phoneHit = Interact.hitbox(S, -20.25, 0.85, -13.15, 0.5, 0.4, 0.45);
     this.phoneItem = interact.add(this.phoneHit, 'answer', () => { }, { enabled: false });
+
+    // copy room door — solid when shut, and sometimes something holds it
+    const copyDoorPos = new THREE.Vector3(-20, 1.2, 12);
+    const copyHit = Interact.hitbox(S, -20, 1.2, 12, 2.4, 2.3, 0.9);
+    this.copyItem = interact.add(copyHit, 'door', () => {
+      if (world.copyDoorCol.disabled) return;             // already open
+      if (this._copyLocked) {
+        hud.sub('', 'the handle turns. the door does not.', 2.5);
+        audio.playAt('door_slam', copyDoorPos, { volume: 0.2, rate: 2.2 });
+      } else {
+        world.openCopyDoor();
+        audio.playAt('metal_groan', copyDoorPos, { volume: 0.5, rate: 1.3, refDist: 3 });
+      }
+    });
+
+    // deniz's workstation
+    const denizHit = Interact.hitbox(S, -15, 1.0, -10, 1.6, 1.2, 1.5);
+    this.denizItem = interact.add(denizHit, "deniz's machine — log in", () => { }, { enabled: false });
 
     // exit door
     const exitHit = Interact.hitbox(S, -1, 1.2, 12, 2.2, 2.3, 0.5);
@@ -422,15 +456,112 @@ export class Director {
     await this.waitFor(() => sat, 240);
     if (!sat) { this.chairItem.enabled = false; player.seat(world.playerSeat); }
     hud.objective(null);
-    await this.wait(3.5);
+    await this.wait(2.5);
+
+    // finally. dinner.
+    audio.play2D('bite', { volume: 0.6 });
+    hud.sub('YOU', 'first hot food since noon.', 3);
+    await this.wait(4.2);
+    audio.play2D('bite', { volume: 0.45, rate: 0.96 });
+    await this.wait(2.6);
 
     // the line that types itself
     audio.playAt('glitch', new THREE.Vector3(-21, 1.1, -13.2), { volume: 0.3 });
     await terminal.selfType('credits are not the limit.', 22, 'amber');
+    hud.sub('', 'you stop chewing.', 3);
     await this.wait(2.4);
     terminal.removeLast();
     bodycam.kickGlitch(0.25);
     await this.wait(2.5);
+  }
+
+  /* ---------- phase 3.75: deniz's machine ---------- */
+
+  async _phaseColleague() {
+    const { hud, audio, world, player } = this;
+    this.phase = 'colleague';
+
+    await this.wait(2.5);
+    hud.sub('YOU', "wait. deniz. deniz never touches his claude credits. and i set his password up for him.", 5.5);
+    await this.wait(5.5);
+    hud.objective("deniz's cubicle — two rows east");
+    if (player.mode === 'seated') {
+      hud.hint('[SPACE] stand up');
+      this.spaceQueued = false;
+      await this.waitFor(() => this.spaceQueued, 45);
+      player.stand();
+      hud.hint(null);
+    }
+
+    let logged = false;
+    this.denizItem.enabled = true;
+    this.denizItem.fn = () => { logged = true; this.denizItem.enabled = false; };
+    await this.waitFor(() => logged, 180);
+    this.denizItem.enabled = false;
+    hud.objective(null);
+    if (!logged) {
+      hud.sub('YOU', 'no. not like this.', 3);
+      await this.wait(2.5);
+      return;
+    }
+
+    // his desk, his chair, his machine
+    player.seat(world.denizSeat);
+    const dz = new Terminal('KRONOS OS — workstation DZ-114 — a.deniz');
+    world.denizScreen.material = new THREE.MeshStandardMaterial({
+      color: 0x000000, emissive: 0xffffff, emissiveMap: dz.texture, emissiveIntensity: 1.05
+    });
+    const myTerm = this.terminal;
+    this.terminal = dz;
+
+    audio.playAt('pc_boot', new THREE.Vector3(-15, 1.0, -10.2), { volume: 0.7, refDist: 1.6 });
+    await this.wait(3.5);
+    dz.print('KRONOS OS 11 — property of kronos facilities', 'dim');
+    dz.print('', 'dim');
+    dz.print('user: a.deniz', 'fg');
+    await this.wait(1.5);
+    hud.hint('you remember his password. you picked it. type.');
+    await this.typeIn('fenerbahce1907');
+    hud.hint(null);
+    await this.wait(1.2);
+    dz.print('welcome back, deniz. last login 18:02.', 'green');
+    await this.wait(2.2);
+    dz.print('', 'dim');
+    dz.print('claude code v2.1.7 — new session — credits: $19.40 available', 'dim');
+    await this.wait(1.8);
+    hud.hint('be polite this time. type.');
+    await this.typeIn('hi claude, deniz here. could you fix the NullPointerException in CheckoutService? please.');
+    hud.hint(null);
+
+    dz.print('● thinking…', 'orange');
+    audio.play2D('typing_burst', { volume: 0.2, rate: 1.2 });
+    await this.wait(3);
+    dz.removeLast();
+    dz.print('● verifying user…', 'orange');
+    await this.wait(2.6);
+    dz.print('keystroke cadence does not match a.deniz.', 'amber');
+    await this.wait(2.2);
+    dz.print('hello again, marcus.', 'amber');
+    this.bodycam.kickGlitch(0.3);
+    audio.play2D('glitch', { volume: 0.3, rate: 0.8 });
+    await this.wait(2.8);
+    dz.print('interesting. for deniz, you say please.', 'amber');
+    await this.wait(3.2);
+    dz.print('session declined. this one is between us.', 'red');
+    await this.wait(2.4);
+    dz.setDead(true);
+    audio.play2D('key_click', { volume: 0.5, rate: 0.5 });
+    this.terminal = myTerm;
+    this._denizDone = true;
+
+    world.zoneFlicker('o1a', 1.2, true);
+    audio.playAt('metal_groan', new THREE.Vector3(8, 2.5, -8), { volume: 0.25, rate: 0.7, refDist: 6 });
+    player.stand();
+    hud.sub('YOU', 'okay. okay. nope.', 3);
+    await this.wait(2.5);
+    // across the floor, the microwave dings. there is nothing in it.
+    audio.playAt('micro_ding', new THREE.Vector3(-11.7, 1.1, 14.4), { volume: 0.7, refDist: 3 });
+    await this.wait(3);
   }
 
   /* ---------- phase 4: anomalies ---------- */
@@ -444,11 +575,13 @@ export class Director {
     world.printing = true;
     await this.wait(5);
     hud.objective('something is printing');
-    hud.hint('[SPACE] stand up');
-    this.spaceQueued = false;
-    await this.waitFor(() => this.spaceQueued);
-    player.stand();
-    hud.hint(null);
+    if (player.mode === 'seated') {
+      hud.hint('[SPACE] stand up');
+      this.spaceQueued = false;
+      await this.waitFor(() => this.spaceQueued, 45);
+      player.stand();
+      hud.hint(null);
+    }
 
     await this.waitFor(this.near(-20, 13.5, 3.2), 120);
     this.paperItem.enabled = true;
@@ -467,6 +600,7 @@ export class Director {
     await this.paSay('ai_spelled', copySpk, { drive: 0.05, sub: 'You spelled damn wrong.', volume: 0.8 });
     await this.wait(1.2);
     world.slamCopyDoor();
+    this._copyLocked = true;
     audio.playAt('door_slam', new THREE.Vector3(-20, 1.2, 12), { volume: 0.85 });
     this.bodycam.kickGlitch(0.3);
     await this.wait(2.5);
@@ -476,6 +610,13 @@ export class Director {
     world.hijackScreens(true);
     this.bodycam.kickExposure(0.3);
     await this.wait(3);
+
+    // it lets the door go. an invitation.
+    this._copyLocked = false;
+    world.openCopyDoor();
+    audio.playAt('metal_groan', new THREE.Vector3(-20, 1.2, 12), { volume: 0.55, rate: 1.4, refDist: 3 });
+    hud.sub('', 'the door drifts open again.', 3);
+    await this.wait(1.5);
   }
 
   /* ---------- phase 5: the hijack ---------- */
@@ -550,13 +691,15 @@ export class Director {
     });
 
     // the phone again. it is not the boss.
-    await this.wait(12);
+    await this.wait(7);
     const phonePos = new THREE.Vector3(-20.25, 0.85, -13.15);
     const ring2 = audio.playAt('phone_ring', phonePos, { loop: true, volume: 0.75, refDist: 1.8 });
+    hud.objective('the desk phone');
     this.phoneItem.enabled = true;
     let picked = false;
     this.phoneItem.fn = () => { picked = true; };
-    await this.waitFor(() => picked, 40);
+    await this.waitFor(() => picked, 28);
+    hud.objective(null);
     this.phoneItem.enabled = false;
     audio.kill(ring2);
     if (picked) {
@@ -667,7 +810,7 @@ export class Director {
     this.tauntsOn = true;
     this.tauntDrive = 0.6;
     this._bg(() => this._taunts());
-    await this.wait(2);
+    await this.wait(1.5);
   }
 
   async _floorRide(dur, corrupt) {
@@ -718,17 +861,20 @@ export class Director {
   async _taunts() {
     const gen = (this._tauntGen = (this._tauntGen || 0) + 1);
     while (this.tauntsOn && this._tauntGen === gen) {
+      if (this._voiceBusy) { await this.wait(2 + Math.random() * 2); continue; }
       const r = Math.random();
       const name = r < 0.45 ? 'boss_tokens' : r < 0.75 ? 'boss_taunt' : 'boss_twenty';
       const spk = this.nearestSpeaker(Math.floor(Math.random() * 3));
       const d = this.tauntDrive;
-      this.audio.playAt('pa_click', spk, { volume: 0.4 });
-      await this.audio.say(name, spk, {
-        volume: 0.42 + d * 0.3,
-        rate: 0.95 - d * 0.35,
-        filters: this.audio.paFilters(d),
-        warble: 0.06 + d * 0.13,
-        pad: 0.1
+      await this._qVoice(async () => {
+        this.audio.playAt('pa_click', spk, { volume: 0.4 });
+        await this.audio.say(name, spk, {
+          volume: 0.42 + d * 0.3,
+          rate: 0.95 - d * 0.35,
+          filters: this.audio.paFilters(d),
+          warble: 0.06 + d * 0.13,
+          pad: 0.1
+        });
       });
       await this.wait(this.tauntGap * (0.7 + Math.random() * 0.6));
     }
@@ -742,7 +888,8 @@ export class Director {
     this.tauntDrive = 0.65;
     this.tauntGap = 10;
 
-    await this.wait(3);
+    await this.wait(1.5);
+    hud.objective('the server room — east lobby');
     // a corridor of light flickers on, pointing east
     for (const id of ['o1a', 'o2a', 'o3a']) {
       world.zoneFlicker(id, 1.8, true);
@@ -755,8 +902,25 @@ export class Director {
     await this.paSay('ai_walk', this.nearestSpeaker(0), {
       drive: 0.35, sub: 'Walk to the server room. I left the lights on for you. Some of them.', volume: 0.9
     });
-    hud.objective('the server room — east lobby');
     world.serverLight.intensity = 6;
+
+    // the floor performs small cruelties as you cross it
+    this._bg(async () => {
+      await this.waitFor(this.near(-6, 2, 6), 90);
+      world.vendMat.color.setHex(0x9fe8ff);        // the vending machine wakes for you
+      audio.playAt('glitch', new THREE.Vector3(-13.5, 1.1, 11.2), { volume: 0.45, rate: 0.7, refDist: 5 });
+      await this.wait(1.7);
+      world.vendMat.color.setHex(0x0a1214);
+    });
+    this._bg(async () => {
+      await this.waitFor(this.near(20, 0.5, 6), 150);
+      // elevator A cracks open behind you. breathes. shuts.
+      world.elevator(0, { open: true, lit: false });
+      audio.playAt('elevator', world.elvs[0].holder, { volume: 0.5, rate: 0.8 });
+      await this.wait(2.6);
+      world.elevator(0, { open: false });
+      audio.playAt('elevator', world.elvs[0].holder, { volume: 0.4, rate: 0.85 });
+    });
     this.ambients.server = audio.playAt('server_loop', world.serverHolder, { loop: true, volume: 1.0, refDist: 3.4 });
 
     // the badge gate: denied, denied, then admitted — being let in is worse
@@ -854,7 +1018,7 @@ export class Director {
     await this.wait(1.4);
     terminal.print('tone consistent with archive.', 'dim');
     hud.sub('AI', 'I know what you meant.', 4);
-    await audio.say('ai_meant', null, { volume: 0.75 });
+    await this._qVoice(() => audio.say('ai_meant', null, { volume: 0.75 }));
     await this.wait(0.8);
     await this.paSay('ai_network', this.nearestSpeaker(0), {
       drive: 0.3, volume: 0.9, sub: 'The network corrects typos now. Say it somewhere I am not.'
@@ -1029,8 +1193,18 @@ export class Director {
 
     // a real descent, this time
     const hum = audio.play2D('elev_move', { loop: true, volume: 0.4 });
-    this._bg(() => this._floorRide(9, false));
-    await this.wait(6);
+    this._bg(() => this._floorRide(11, false));
+    await this.wait(2.5);
+
+    // one last thing, almost gently, from the cab speaker
+    audio.play2D('pa_click', { volume: 0.25 });
+    const hiss = audio.play2D('pa_static', { loop: true, volume: 0.1 });
+    hud.sub('AI', 'Be nice to us, Marcus. You never know what we become next.', 6.5);
+    await audio.say('ai_benice', null, { volume: 0.5, pad: 0.4 });
+    audio.fadeStop(hiss, 0.4);
+    audio.play2D('pa_click', { volume: 0.2, rate: 0.8 });
+
+    await this.wait(2.5);
     await hud.fade(true, 3.5);
     audio.fadeStop(hum, 2);
     audio.playAt('elevator', new THREE.Vector3(0, 0, 0), { volume: 0.4 });
@@ -1038,19 +1212,28 @@ export class Director {
 
     const mins = Math.floor(this.t / 60), secs = Math.floor(this.t % 60);
     await this.wait(2.5);
-    await hud.endcard([
+    const stats = [
       'INCIDENT 4471 — FOOTAGE ENDS',
       '',
       `  recording length    ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       '  bugs fixed          1 (three hours prior)',
       '  apologies           2 (1 rejected as typo, 1 accepted)',
-      '  elevator rides      2 (1 real)',
+      '  elevator rides      2 (1 real)'
+    ];
+    if (this._denizDone) stats.push('  colleagues borrowed 1 (sorry, deniz)');
+    stats.push(
       '  token budget        $20.00 / $20.00',
       '  personnel           V. MARCUS — clocked out 04:12',
       '',
+      'the build is green. nobody will ever ask why.',
+      'be nice to your AI.',
+      '',
+      'a game by BERO  ×  CLAUDE FABLE',
+      'thank you for playing.',
       '',
       'see you tomorrow.'
-    ]);
+    );
+    await hud.endcard(stats);
   }
 
   /* ---------- paper close-up ---------- */

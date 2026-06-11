@@ -8,7 +8,8 @@ const FILES = [
   'music_dawn','music_muzak',
   'coffee_brew','micro_ding','micro_hum',
   'hvac_loop','key_click','light_off','metal_groan','music_dread','music_finale','pa_click',
-  'papers','phone_pickup','phone_ring','printer','server_loop','typing_burst'
+  'papers','phone_pickup','phone_ring','printer','server_loop','typing_burst',
+  'ai_benice','pa_static','bite','pc_boot'
 ];
 
 export class AudioMgr {

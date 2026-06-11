@@ -148,6 +148,9 @@ export class World {
     cd.position.set(1, 1.15, 0); hinge.add(cd);
     hinge.rotation.y = -1.85;
     this.copyDoor = hinge;
+    // solid while shut — no more walking through a closed door
+    this.copyDoorCol = { x1: -21.05, x2: -18.95, z1: 11.92, z2: 12.08, disabled: true };
+    this.colliders.push(this.copyDoorCol);
 
     // exit door (locked, x -2..0)
     this.exitDoor = this._box(2, 2.3, 0.1, -1, 1.15, 12, matDoor, true);
@@ -223,6 +226,17 @@ export class World {
         flip = !flip;
       }
     }
+
+    /* ---- deniz's cubicle (first one, NW) ---- */
+    this.denizScreen = this.cubMonitors[0];
+    this.denizSeat = {
+      pos: new THREE.Vector3(-15, 0, -9.2),
+      yaw: 0, yawRange: 1.2, pitchMin: -0.6, pitchMax: 0.4
+    };
+    this.denizFocus = new THREE.Vector3(-15, 1.13, -10.215);
+    // a sticky note on his monitor frame
+    this._box(0.09, 0.09, 0.005, -15.2, 1.2, -10.21,
+      new THREE.MeshStandardMaterial({ color: 0xf2e26b, roughness: 0.9 }), false);
 
     /* ---- copy room ---- */
     const matPrinter = new THREE.MeshStandardMaterial({ color: 0xb9b6ad, roughness: 0.5 });
@@ -481,7 +495,9 @@ export class World {
     return e;
   }
 
-  slamCopyDoor() { this._copyDoorTarget = 0; }
+  slamCopyDoor() { this._copyDoorTarget = 0; this.copyDoorCol.disabled = false; }
+
+  openCopyDoor() { this._copyDoorTarget = -1.85; this.copyDoorCol.disabled = true; }
 
   setMicro(running) { this.microLedMat.color.setHex(running ? 0x2bff7a : 0x102415); }
 
@@ -536,6 +552,7 @@ export class World {
       this.papers.push({ m, vel: new THREE.Vector3(), settled: true, sway: 0 });
     }
     this._copyDoorTarget = 0;
+    this.copyDoorCol.disabled = false;
     this.hijackScreens(true);
   }
 

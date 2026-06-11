@@ -7,7 +7,8 @@ const COLORS = {
 };
 
 export class Terminal {
-  constructor() {
+  constructor(title = 'claude code v2.1.7 — /srv/checkout — session #4471') {
+    this.title = title;
     this.canvas = document.createElement('canvas');
     this.canvas.width = W; this.canvas.height = H;
     this.g = this.canvas.getContext('2d');
@@ -92,7 +93,7 @@ export class Terminal {
     g.fillStyle = '#febc2e'; g.beginPath(); g.arc(46, 19, 6, 0, 7); g.fill();
     g.fillStyle = '#28c840'; g.beginPath(); g.arc(68, 19, 6, 0, 7); g.fill();
     g.fillStyle = COLORS.dim; g.font = FONT;
-    g.fillText('claude code v2.1.7 — /srv/checkout — session #4471', 96, 25);
+    g.fillText(this.title, 96, 25);
 
     g.font = FONT;
     let y = 38 + PAD + 8;
