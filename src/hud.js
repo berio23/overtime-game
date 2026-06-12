@@ -86,4 +86,30 @@ export class Hud {
     }
     pre.innerHTML += '<span class="cursor">█</span>';
   }
+
+  /** reveals the end-card newsletter signup (Netlify Forms backend) */
+  newsletter() {
+    const box = $('newsletter');
+    if (!box || box.classList.contains('on')) return;
+    box.classList.add('on');
+    const form = $('nlform'), note = $('nlnote'), email = $('nlemail');
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const v = email.value.trim();
+      if (!v) return;
+      note.textContent = 'saving…';
+      try {
+        const r = await fetch('/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ 'form-name': 'newsletter', email: v }).toString()
+        });
+        if (!r.ok) throw new Error(r.status);
+        form.style.display = 'none';
+        note.textContent = 'subscribed. see you tomorrow.';
+      } catch (err) {
+        note.textContent = 'could not save — check connection and try again.';
+      }
+    });
+  }
 }

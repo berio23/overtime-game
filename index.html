@@ -65,8 +65,18 @@
   #pause{ position:fixed; inset:0; z-index:45; background:rgba(0,0,0,.82); display:none; align-items:center;
     justify-content:center; color:#ccc; letter-spacing:3px; font-size:14px; cursor:pointer; }
   #pause.on{ display:flex; }
-  #endcard{ position:fixed; inset:0; z-index:48; background:#000; display:none; align-items:center; justify-content:center; }
+  #endcard{ position:fixed; inset:0; z-index:48; background:#000; display:none; flex-direction:column; align-items:center; justify-content:center; }
   #endcard.on{ display:flex; }
+  #newsletter{ margin-top:36px; display:none; flex-direction:column; align-items:center; gap:12px; }
+  #newsletter.on{ display:flex; }
+  #newsletter .nl-line{ color:#5b6660; font-size:12px; letter-spacing:2px; }
+  #newsletter form{ display:flex; gap:10px; }
+  #newsletter input[type=email]{ background:#0a0d0b; border:1px solid #2c3a33; color:#cfd8d3;
+    font-family:inherit; font-size:13px; padding:8px 12px; width:min(240px,52vw); letter-spacing:1px; outline:none; }
+  #newsletter input[type=email]:focus{ border-color:#3fcf6e; }
+  #newsletter button{ background:transparent; border:1px solid #3fcf6e; color:#9af0b6; font-family:inherit;
+    font-size:12px; letter-spacing:2px; padding:8px 16px; cursor:pointer; }
+  #newsletter button:hover{ background:rgba(63,207,110,.12); }
   #endcard pre{ color:#cfd8d3; font-size:14px; line-height:2; letter-spacing:1px; }
   #endcard .cursor{ animation:blink 1s steps(1) infinite; }
 
@@ -117,7 +127,18 @@
 
   <div id="pause">PAUSED — CLICK TO RESUME</div>
 
-  <div id="endcard"><pre id="endtext"></pre></div>
+  <div id="endcard"><pre id="endtext"></pre>
+    <div id="newsletter">
+      <div class="nl-line">&mdash; GET NOTIFIED WHEN THE NEXT GAME DROPS &mdash;</div>
+      <form id="nlform" name="newsletter" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="newsletter">
+        <p style="display:none"><label>don't fill this in: <input name="bot-field"></label></p>
+        <input type="email" name="email" id="nlemail" placeholder="you@email.com" autocomplete="email" required>
+        <button type="submit">NOTIFY ME</button>
+      </form>
+      <div class="nl-line" id="nlnote">no spam &mdash; just new games.</div>
+    </div>
+  </div>
   <div id="rotate">ROTATE YOUR PHONE<br><br>this footage is landscape</div>
 
   <div id="boot" class="loading">

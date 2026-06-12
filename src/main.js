@@ -117,6 +117,7 @@ document.addEventListener('visibilitychange', () => {
 
 document.addEventListener('keydown', e => {
   if (!started || paused) return;
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; // newsletter form
   if (e.code === 'KeyE') { interact.trigger(); }
   if (e.code === 'KeyF' && player.flashAllowed && !director.typing) {
     player.setFlash(!player.flashOn);

@@ -1262,6 +1262,11 @@ export class Director {
       'see you tomorrow.'
     );
     await hud.endcard(stats);
+
+    // release the mouse so they can reach the signup form
+    await this.wait(1.5);
+    if (document.exitPointerLock) document.exitPointerLock();
+    hud.newsletter();
   }
 
   /* ---------- paper close-up: he holds the page in frame ---------- */
