@@ -114,11 +114,24 @@ export class AudioMgr {
   /** waits for a one-shot to finish (plus optional pad) */
   say(name, target, opts = {}) {
     return new Promise(res => {
-      const done = () => setTimeout(res, (opts.pad ?? 0.25) * 1000);
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        setTimeout(res, (opts.pad ?? 0.25) * 1000);
+      };
       const o = { ...opts, onEnded: done };
-      const a = target ? this.playAt(name, target, o) : this.play2D(name, o);
-      if (opts.warble) this.addWarble(a, opts.rate ?? 1, opts.warble);
-      if (opts.out) opts.out(a);
+      try {
+        const a = target ? this.playAt(name, target, o) : this.play2D(name, o);
+        if (opts.warble) this.addWarble(a, opts.rate ?? 1, opts.warble);
+        if (opts.out) opts.out(a);
+      } catch (e) {
+        console.error('say(' + name + ')', e);
+        return done();
+      }
+      // a line that never reports its ending must not hang the whole script
+      const cap = (this.duration(name) / (opts.rate ?? 1) + 4) * 1000;
+      setTimeout(done, cap);
     });
   }
 
