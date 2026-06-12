@@ -24,13 +24,14 @@ scene.background = new THREE.Color(0x020203);
 scene.fog = new THREE.FogExp2(0x05060a, 0.022);
 
 // phones subtend a much smaller visual angle than a monitor — pull the lens in
-const camera = new THREE.PerspectiveCamera(IS_MOBILE ? 74 : 96, window.innerWidth / window.innerHeight, 0.05, 120);
+const camera = new THREE.PerspectiveCamera(IS_MOBILE ? 82 : 96, window.innerWidth / window.innerHeight, 0.05, 120);
 scene.add(camera); // camera carries the flashlight + phone prop
 
 const audio = new AudioMgr(camera);
 audio.scene = scene;
 const world = new World(scene);
 const player = new Player(camera);
+if (IS_MOBILE) player.zoomFov = 26; // small screen: the lens digs in deeper to read text
 const terminal = new Terminal();
 world.attachTerminal(terminal.texture);
 const hud = new Hud();
