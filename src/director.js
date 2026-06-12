@@ -685,9 +685,10 @@ export class Director {
         sub: 'Twenty dollars. He values your nights at twenty dollars. I value them more.'
       });
       await this.wait(3);
-      // it will not shut while you stand in its mouth
-      await this.waitFor(() => this.player.pos.x < 25.0 || this.phase === 'falseexit', 600);
+      // it will not shut while you stand in its mouth — or anywhere inside
+      await this.waitFor(() => !this._inElevator(0) || this.phase === 'falseexit', 600);
       if (!['hijack', 'review'].includes(this.phase)) return;   // the false exit owns it now
+      if (this._inElevator(0)) return;                          // still inside: leave it open
       world.elevator(0, { open: false, indicator: false });
       audio.playAt('elevator', this.world.elvs[0].holder, { volume: 0.5, rate: 0.85 });
     });
@@ -772,7 +773,8 @@ export class Director {
     hud.objective('go home…?');
     hud.sub('YOU', "elevator's open. east lobby. it's never this easy.", 4.5);
 
-    const inCab = () => this.player.pos.x > 25.3 && Math.abs(this.player.pos.z + 2) < 1.05;
+    // anywhere past the door line counts — a rider by the doors gets the ride, not a shut door
+    const inCab = () => this.player.pos.x > 25.05 && Math.abs(this.player.pos.z + 2) < 1.05;
     await this.waitFor(inCab, 75);
 
     if (inCab()) {
@@ -801,8 +803,8 @@ export class Director {
       });
     } else {
       // they didn't take the bait; it makes the point anyway
-      world.elevator(0, { open: false, lit: false, indicator: false });
-      audio.playAt('elevator', world.elvs[0].holder, { volume: 0.5, rate: 0.85 });
+      world.elevator(0, { lit: false, indicator: false });
+      this._bg(() => this._closeElevatorSafe(0));
       world.falseFloor();
       await this.paSay('ai_everyfloor', this.nearestSpeaker(0), {
         drive: 0.3, volume: 0.9, sub: 'This is the ground floor. This is every floor.'
@@ -828,6 +830,20 @@ export class Director {
       }
       await this.wait(dur / 11);
     }
+  }
+
+  /** the player is in (or touching) elevator i's cab or door line — shutting now could trap them */
+  _inElevator(i) {
+    const e = this.world.elvs[i];
+    const p = this.player.pos;
+    return p.x > 24.4 && Math.abs(p.z - e.cz) < 1.25;
+  }
+
+  /** shuts the doors, but only once the player is clear of the cab and door line */
+  async _closeElevatorSafe(i, { lit = null, indicator = null, volume = 0.5, rate = 0.85 } = {}) {
+    while (this._inElevator(i)) await this.wait(0.3);
+    this.world.elevator(i, { open: false, lit, indicator });
+    this.audio.playAt('elevator', this.world.elvs[i].holder, { volume, rate });
   }
 
   _onExitTried() {
@@ -928,9 +944,7 @@ export class Director {
       world.elevator(0, { open: true, lit: false });
       audio.playAt('elevator', world.elvs[0].holder, { volume: 0.5, rate: 0.8 });
       await this.wait(2.6);
-      await this.waitFor(() => this.player.pos.x < 25.0, 300);  // never on a player inside
-      world.elevator(0, { open: false });
-      audio.playAt('elevator', world.elvs[0].holder, { volume: 0.4, rate: 0.85 });
+      await this._closeElevatorSafe(0, { volume: 0.4 });   // never on a player inside
     });
     this.ambients.server = audio.playAt('server_loop', world.serverHolder, { loop: true, volume: 1.0, refDist: 3.4 });
 
