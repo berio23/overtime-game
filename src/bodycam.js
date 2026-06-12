@@ -2,6 +2,13 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { IS_MOBILE } from './mobile.js';
+
+// the cheap-camera look drowns small text on a phone screen — back it off there
+// (grainMul scales baseGrain so the director's story-beat grain spikes soften too)
+const FX = IS_MOBILE
+  ? { grainMul: 0.45, ca: 0.005, vig: 0.92, dist: 0.07 }
+  : { grainMul: 1.0, ca: 0.012, vig: 1.15, dist: 0.16 };
 
 const BodycamShader = {
   uniforms: {
@@ -67,9 +74,12 @@ export class Bodycam {
     this.composer.addPass(new RenderPass(scene, camera));
     this.pass = new ShaderPass(BodycamShader);
     this.composer.addPass(this.pass);
+    this.camera = camera;
+    this.baseFov = camera.fov;
     this.glitch = 0;            // target glitch amount, decays
     this.exposureKick = 0;      // brief auto-exposure pumps
     this.baseGrain = 0.10;
+    this.pass.uniforms.uVig.value = FX.vig;
     this.zoom = 0;              // mirrored from player each frame
     this.zoomEl = document.getElementById('zoomind');
 
@@ -96,12 +106,12 @@ export class Bodycam {
     u.uGlitch.value = this.glitch;
     this.exposureKick = Math.max(0, this.exposureKick - dt * 0.8);
     u.uExposure.value = 1.0 + this.exposureKick + Math.sin(t * 0.7) * 0.02;
-    u.uGrain.value = this.baseGrain * (1 + this.zoom * 0.5); // digital zoom amplifies noise
-    u.uDist.value = 0.16 * (1 - this.zoom * 0.8);            // crop flattens the lens
-    u.uCA.value = 0.012 * (1 - this.zoom * 0.6);
+    u.uGrain.value = this.baseGrain * FX.grainMul * (1 + this.zoom * 0.5); // digital zoom amplifies noise
+    u.uDist.value = FX.dist * (1 - this.zoom * 0.8);         // crop flattens the lens
+    u.uCA.value = FX.ca * (1 - this.zoom * 0.6);
     if (this.zoomEl) {
-      const mag = Math.tan(THREE.MathUtils.degToRad(96 / 2)) /
-        Math.tan(THREE.MathUtils.degToRad((96 - 60 * this.zoom) / 2));
+      const mag = Math.tan(THREE.MathUtils.degToRad(this.baseFov / 2)) /
+        Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
       this.zoomEl.style.opacity = this.zoom > 0.04 ? 0.9 : 0;
       this.zoomEl.textContent = `ZOOM ${mag.toFixed(1)}×`;
     }
