@@ -79,7 +79,12 @@ bootEl.addEventListener('click', async () => {
   } else if (renderer.domElement.requestPointerLock) {
     renderer.domElement.requestPointerLock();
   }
-  director.run().catch(e => console.error(e));
+  director.run().catch(e => {
+    console.error(e);
+    // the story script must never die holding the player's controls
+    player.inputEnabled = true;
+    interact.enabled = true;
+  });
 });
 
 /* ---------- pause on pointer-lock loss ---------- */
