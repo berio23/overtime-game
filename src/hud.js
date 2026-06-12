@@ -99,12 +99,16 @@ export class Hud {
       if (!v) return;
       note.textContent = 'saving…';
       try {
-        const r = await fetch('/', {
+        // desktop build / local dev runs off localhost — send the signup to the
+        // live site, where the Netlify Forms backend actually lives
+        const local = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const r = await fetch(local ? 'https://overtimegame.netlify.app/' : '/', {
           method: 'POST',
+          mode: local ? 'no-cors' : 'same-origin',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({ 'form-name': 'newsletter', email: v }).toString()
         });
-        if (!r.ok) throw new Error(r.status);
+        if (!local && !r.ok) throw new Error(r.status);
         form.style.display = 'none';
         note.textContent = 'subscribed. see you tomorrow.';
       } catch (err) {
