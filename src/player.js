@@ -176,9 +176,9 @@ export class Player {
       }
     }
 
-    // digital zoom + lean-in
+    // digital zoom + lean-in — full zoom always lands at 36° regardless of base FOV
     this.zoom += (this.zoomTarget - this.zoom) * Math.min(1, dt * 9);
-    const fov = this.baseFov - 60 * this.zoom;
+    const fov = this.baseFov - (this.baseFov - 36) * this.zoom;
     if (Math.abs(this.camera.fov - fov) > 0.01) {
       this.camera.fov = fov;
       this.camera.updateProjectionMatrix();

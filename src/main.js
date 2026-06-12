@@ -9,7 +9,7 @@ import { Interact } from './interact.js';
 import { Director } from './director.js';
 import { IS_MOBILE, TouchControls } from './mobile.js';
 
-const PIXEL_CAP = IS_MOBILE ? 1.0 : 1.5;
+const PIXEL_CAP = 1.5; // mobile needs the same cap or monitor text turns to mush
 if (IS_MOBILE) document.body.classList.add('mobile');
 
 const renderer = new THREE.WebGLRenderer({ antialias: !IS_MOBILE, powerPreference: 'high-performance' });
@@ -23,7 +23,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x020203);
 scene.fog = new THREE.FogExp2(0x05060a, 0.022);
 
-const camera = new THREE.PerspectiveCamera(96, window.innerWidth / window.innerHeight, 0.05, 120);
+// phones subtend a much smaller visual angle than a monitor — pull the lens in
+const camera = new THREE.PerspectiveCamera(IS_MOBILE ? 82 : 96, window.innerWidth / window.innerHeight, 0.05, 120);
 scene.add(camera); // camera carries the flashlight + phone prop
 
 const audio = new AudioMgr(camera);
